@@ -8,4 +8,10 @@ export default class Character {
     // TODO: throw error if user use "new Character()"
     if (new.target === Character) throw new Error('Character must be calleb throug child');
   }
+
+  vounded(damage) {
+    this.health -= damage;
+    if (this.health <= 0) return false;
+    return this.health;
+  }
 }
