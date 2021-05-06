@@ -37,3 +37,4 @@ export function calcHealthLevel(health) {
 
   return 'high';
 }
+

@@ -10,8 +10,6 @@ import PositionedCharacter from './PositionedCharacter';
 import cursors from './cursors';
 import GamePlay from './GamePlay';
 
-
-
 export default class GameController {
   constructor(gamePlay, stateService) {
     this.gamePlay = gamePlay;
@@ -19,7 +17,7 @@ export default class GameController {
     this.boardSize = gamePlay.boardSize;
     this.turn = 0;
     this.theme = themes.prairie;
-    this.selectedChar;
+    this.selectedChar = undefined;
   }
 
   init() {
@@ -45,7 +43,6 @@ export default class GameController {
       );
       positions.push(placedChar);
     }
-    console.log(positions);
     // рисуем расставленных персонажей
     this.positions = positions;
     this.gamePlay.redrawPositions(positions);
@@ -83,14 +80,23 @@ export default class GameController {
   onCellClick(index) {
     // TODO: react to click
     for (let i = 0; i < this.positions.length; i += 1) {
-      if (index === this.positions[i].position && this.positions[i].character.type !== 'vampire' && this.positions[i].character.type !== 'undead' && this.positions[i].character.type !== 'daemon') {
+      if (
+        index === this.positions[i].position &&
+        this.positions[i].character.type !== 'vampire' &&
+        this.positions[i].character.type !== 'undead' &&
+        this.positions[i].character.type !== 'daemon'
+      ) {
         for (let a = 0; a < this.boardSize ** 2 - 1; a += 1) {
           this.gamePlay.deselectCell(a);
         }
         this.gamePlay.selectCell(index);
         this.selectedChar = this.positions.find((item) => {
           if (item.position === index) {
-            if (item.character.type === 'vampire' || item.character.type === 'undead' || item.character.type === 'daemon') {
+            if (
+              item.character.type === 'vampire' ||
+              item.character.type === 'undead' ||
+              item.character.type === 'daemon'
+            ) {
               GamePlay.showError('This character is not playable');
               return undefined;
             }
@@ -186,13 +192,18 @@ export default class GameController {
       const row = curretPosition[0];
       const column = curretPosition[1];
       if (column - i >= 0) array.push(this.convertIndex([row, column - i]));
-      if (!(column - i >= this.boardSize)) array.push(this.convertIndex([row, column + i]));
+      if (!(column - i >= this.boardSize))
+        array.push(this.convertIndex([row, column + i]));
       array.push(this.convertIndex([row + i, column]));
       array.push(this.convertIndex([row - i, column]));
-      if (row - i >= 0 && column + i < this.boardSize) array.push(this.convertIndex([row - i, column + i]));
-      if (row + i < this.boardSize && column + i < this.boardSize) array.push(this.convertIndex([row + i, column + i]));
-      if (row + i < this.boardSize && column - i >= 0) array.push(this.convertIndex([row + i, column - i]));
-      if (row - i >= 0 && column - i >= 0) array.push(this.convertIndex([row - i, column - i]));
+      if (row - i >= 0 && column + i < this.boardSize)
+        array.push(this.convertIndex([row - i, column + i]));
+      if (row + i < this.boardSize && column + i < this.boardSize)
+        array.push(this.convertIndex([row + i, column + i]));
+      if (row + i < this.boardSize && column - i >= 0)
+        array.push(this.convertIndex([row + i, column - i]));
+      if (row - i >= 0 && column - i >= 0)
+        array.push(this.convertIndex([row - i, column - i]));
     }
     return array.filter((el) => !othersPositions.includes(el));
   }
@@ -204,14 +215,25 @@ export default class GameController {
     const { range } = selectedChar.character;
     const target = this.convertIndex(index);
     const arr = [];
-    Array.from(this.positions).forEach((e) => {
-      if (
-        e.character.type === 'daemon' ||
-        e.character.type === 'vampire' ||
-        e.character.type === 'undead'
-      )
-        arr.push(e.position);
-    });
+    if (this.turn === 0) {
+      Array.from(this.positions).forEach((e) => {
+        if (
+          e.character.type === 'daemon' ||
+          e.character.type === 'vampire' ||
+          e.character.type === 'undead'
+        )
+          arr.push(e.position);
+      });
+    } else if (this.turn === 1) {
+      Array.from(this.positions).forEach((e) => {
+        if (
+          e.character.type === 'swordsman' ||
+          e.character.type === 'magician' ||
+          e.character.type === 'bowman'
+        )
+          arr.push(e.position);
+      });
+    }
     if (
       (curretPosition[0] === target[0] &&
         Math.abs(curretPosition[1] - target[1]) <= range) || // Горизонталь
@@ -222,7 +244,8 @@ export default class GameController {
     ) {
       // Диагональ
       for (let i = 0; i <= arr.length; i += 1) {
-        if (this.convertIndex(target) === arr[i]) return this.convertIndex(target);
+        if (this.convertIndex(target) === arr[i])
+          return this.convertIndex(target);
       }
     }
     return false;
@@ -238,6 +261,12 @@ export default class GameController {
         this.positions.push(selectedChar);
         this.gamePlay.redrawPositions(this.positions);
         this.selectedChar = undefined;
+        if (this.turn === 0) {
+          this.turn = 1;
+        } else {
+          this.turn = 0;
+        }
+        this.ai();
         for (let a = 0; a < this.boardSize ** 2 - 1; a += 1) {
           this.gamePlay.deselectCell(a);
         }
@@ -254,19 +283,81 @@ export default class GameController {
       const { defence } = enemy.character;
       const { attack } = selectedChar.character;
       const damage = Math.max(attack - defence, attack * 0.1);
-      this.gamePlay.showDamage(target, damage)
-        .then(() => {
-          enemy.character.vounded(damage);
+      this.gamePlay.showDamage(target, damage).then(() => {
+        enemy.character.vounded(damage);
+        if (enemy.character.health > 0) {
           this.positions.splice(this.positions.indexOf(selectedChar), 1);
           delete selectedChar.ways;
           delete selectedChar.targets;
           this.positions.push(selectedChar);
           this.gamePlay.redrawPositions(this.positions);
           this.selectedChar = undefined;
-          for (let a = 0; a < this.boardSize ** 2 - 1; a += 1) {
-            this.gamePlay.deselectCell(a);
-          }
-        });
+        }
+        if (enemy.character.health <= 0) {
+          this.positions.splice(this.positions.indexOf(selectedChar), 1);
+          delete selectedChar.ways;
+          delete selectedChar.targets;
+          this.positions.push(selectedChar);
+          this.positions.splice(this.positions.indexOf(enemy), 1);
+          this.gamePlay.redrawPositions(this.positions);
+          this.selectedChar = undefined;
+        }
+        if (this.turn === 0) {
+          this.turn = 1;
+        } else {
+          this.turn = 0;
+        }
+        this.ai();
+        for (let a = 0; a < this.boardSize ** 2 - 1; a += 1) {
+          this.gamePlay.deselectCell(a);
+        }
+      });
     }
+  }
+
+  ai() {
+    if (this.turn === 1) {
+      const aiTeam = this.positions.filter((item) => {
+        if (
+          item.character.type === 'daemon' ||
+          item.character.type === 'vampire' ||
+          item.character.type === 'undead'
+        )
+          return item;
+      });
+      const userTeam = this.positions.filter((item) => {
+        if (
+          item.character.type === 'bowman' ||
+          item.character.type === 'swordsman' ||
+          item.character.type === 'magician'
+        )
+          return item;
+      });
+      userTeam.sort((a, b) => {
+        return a.character.defence - b.character.defence;
+      });
+      const arr = [];
+      let killOrder = false;
+      let targetIndex = 0;
+      let atacker = 0;
+      for (let i = 0; i < userTeam.length; i += 1) {
+        arr.push(userTeam[i].position);
+      }
+      aiTeam.sort((a, b) => {
+        return b.character.attack - a.character.attack;
+      });
+      for (let i = 0; i < aiTeam.length; i += 1) {
+        for (let a = 0; a < arr.length; a += 1) {
+          if (this.canAttack(aiTeam[i], arr[a])) {
+            killOrder = true;
+            targetIndex = arr[a];
+            atacker = aiTeam[i];
+          }
+        }
+      }
+      if (killOrder) this.atack(atacker, targetIndex);
+      console.log(this.turn);
+    }
+    this.turn = 0;
   }
 }

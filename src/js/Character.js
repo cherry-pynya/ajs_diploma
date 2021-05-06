@@ -11,7 +11,6 @@ export default class Character {
 
   vounded(damage) {
     this.health -= damage;
-    if (this.health <= 0) return false;
     return this.health;
   }
 }
