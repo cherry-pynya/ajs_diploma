@@ -1,5 +1,5 @@
 import themes from './themes';
-import { generateTeam } from './generators';
+import { generateTeam, generateRandon } from './generators';
 import Bowman from './classes/Bowman';
 import Swordsman from './classes/Swordsman';
 import Magician from './classes/Magician';
@@ -9,6 +9,8 @@ import Vampire from './classes/Vampire';
 import PositionedCharacter from './PositionedCharacter';
 import cursors from './cursors';
 import GamePlay from './GamePlay';
+import GameState from './GameState';
+import GameStateService from './GameStateService';
 
 export default class GameController {
   constructor(gamePlay, stateService) {
@@ -16,42 +18,79 @@ export default class GameController {
     this.stateService = stateService;
     this.boardSize = gamePlay.boardSize;
     this.turn = 0;
-    this.theme = themes.prairie;
     this.selectedChar = undefined;
+    this.level = 1;
+    this.localStorage = new GameStateService(localStorage);
+    if (this.level === 1) this.theme = themes.prairie;
+    if (this.level === 2) this.theme = themes.desert;
+    if (this.level === 3) this.theme = themes.arctic;
+    if (this.level === 4) this.theme = themes.mountain;
   }
 
   init() {
+    console.log(this.stateService);
     // рисуем поле
     this.gamePlay.drawUi(this.theme);
     // создаем команды
     const userTeam = generateTeam([Bowman, Magician, Swordsman], 4, 2);
     const enemyTeam = generateTeam([Daemon, Undead, Vampire], 4, 2);
-    console.log(userTeam, enemyTeam);
     // расставляем персонажей
     const positions = [];
     for (let i = 0; i < userTeam.members.length; i += 1) {
       const placedChar = new PositionedCharacter(
         userTeam.members[i],
-        this.getPlayerPosition()
+        this.getPlayerPosition(),
       );
       positions.push(placedChar);
     }
     for (let i = 0; i < enemyTeam.members.length; i += 1) {
       const placedChar = new PositionedCharacter(
         enemyTeam.members[i],
-        this.getEnemyPosition()
+        this.getEnemyPosition(),
       );
       positions.push(placedChar);
     }
     // рисуем расставленных персонажей
     this.positions = positions;
-    this.gamePlay.redrawPositions(positions);
+    this.gamePlay.redrawPositions(this.positions);
     // листенеры для клеток
     this.gamePlay.addCellEnterListener(this.onCellEnter.bind(this));
     this.gamePlay.addCellLeaveListener(this.onCellLeave.bind(this));
     this.gamePlay.addCellClickListener(this.onCellClick.bind(this));
     // TODO: add event listeners to gamePlay events
     // TODO: load saved stated from stateService
+    const newGameBtn = Array.from(document.getElementsByClassName('btn')).find(
+      (e) => {
+        return e.dataset.id === 'action-restart';
+      }
+    );
+    newGameBtn.addEventListener('click', () => {
+      this.gamePlay.addNewGameListener(location.reload());
+    });
+    const saveBtn = Array.from(document.getElementsByClassName('btn')).find(
+      (e) => {
+        return e.dataset.id === 'action-save';
+      },
+    );
+    saveBtn.addEventListener('click', () => {
+      localStorage.clear();
+      const save = GameState.from(this);
+      this.localStorage.save(save);
+      console.log(localStorage);
+    });
+    const loadBtn = Array.from(document.getElementsByClassName('btn')).find(
+      (e) => {
+        return e.dataset.id === 'action-load';
+      }
+    );
+    loadBtn.addEventListener('click', () => {
+      const { theme, positions, level } = this.localStorage.load();
+      this.theme = theme;
+      this.positions = positions;
+      this.level = level;
+      this.gamePlay.drawUi(this.theme);
+      this.gamePlay.redrawPositions(this.positions);
+    });
   }
 
   // генерация позиций игрока
@@ -267,6 +306,7 @@ export default class GameController {
           this.turn = 0;
         }
         this.ai();
+        this.checkWinner();
         for (let a = 0; a < this.boardSize ** 2 - 1; a += 1) {
           this.gamePlay.deselectCell(a);
         }
@@ -308,6 +348,7 @@ export default class GameController {
           this.turn = 0;
         }
         this.ai();
+        this.checkWinner();
         for (let a = 0; a < this.boardSize ** 2 - 1; a += 1) {
           this.gamePlay.deselectCell(a);
         }
@@ -346,18 +387,111 @@ export default class GameController {
       aiTeam.sort((a, b) => {
         return b.character.attack - a.character.attack;
       });
-      for (let i = 0; i < aiTeam.length; i += 1) {
-        for (let a = 0; a < arr.length; a += 1) {
-          if (this.canAttack(aiTeam[i], arr[a])) {
-            killOrder = true;
-            targetIndex = arr[a];
-            atacker = aiTeam[i];
-          }
-        }
-      }
-      if (killOrder) this.atack(atacker, targetIndex);
-      console.log(this.turn);
     }
     this.turn = 0;
+  }
+
+  checkWinner() {
+    const arrUser = Array.from(this.positions).filter((item) => {
+      if (
+        item.character.type === 'bowman' ||
+        item.character.type === 'swordsman' ||
+        item.character.type === 'magician'
+      )
+        return true;
+    });
+    if (arrUser.length === 0) this.playerLost();
+    const arrAi = Array.from(this.positions).filter((item) => {
+      if (
+        item.character.type === 'daemon' ||
+        item.character.type === 'vampire' ||
+        item.character.type === 'undead'
+      )
+        return true;
+    });
+    if (arrAi.length === 0) this.playerWon();
+  }
+
+  playerLost() {
+    alert('You lost');
+    location.reload();
+  }
+
+  playerWon() {
+    this.level += 1;
+    alert('you win');
+    if (this.level === 2) {
+      console.log(generateRandon(this.level));
+      const char = new PositionedCharacter(
+        generateRandon(this.level),
+        this.getPlayerPosition()
+      );
+      this.positions.push(char);
+      const enemyTeam = generateTeam(
+        [Daemon, Undead, Vampire],
+        4,
+        this.positions.length
+      );
+      for (let i = 0; i < enemyTeam.members.length; i += 1) {
+        const placedChar = new PositionedCharacter(
+          enemyTeam.members[i],
+          this.getEnemyPosition()
+        );
+        this.positions.push(placedChar);
+      }
+      this.theme = themes.desert;
+      this.gamePlay.drawUi(this.theme);
+      this.gamePlay.redrawPositions(this.positions);
+    }
+    if (this.level === 3) {
+      console.log(generateRandon(this.level));
+      const char = new PositionedCharacter(
+        generateRandon(this.level),
+        this.getPlayerPosition()
+      );
+      this.positions.push(char);
+      const enemyTeam = generateTeam(
+        [Daemon, Undead, Vampire],
+        4,
+        this.positions.length
+      );
+      for (let i = 0; i < enemyTeam.members.length; i += 1) {
+        const placedChar = new PositionedCharacter(
+          enemyTeam.members[i],
+          this.getEnemyPosition()
+        );
+        this.positions.push(placedChar);
+      }
+      this.theme = themes.arctic;
+      this.gamePlay.drawUi(this.theme);
+      this.gamePlay.redrawPositions(this.positions);
+    }
+    if (this.level === 4) {
+      console.log(generateRandon(this.level));
+      const char = new PositionedCharacter(
+        generateRandon(this.level),
+        this.getPlayerPosition()
+      );
+      this.positions.push(char);
+      const enemyTeam = generateTeam(
+        [Daemon, Undead, Vampire],
+        4,
+        this.positions.length
+      );
+      for (let i = 0; i < enemyTeam.members.length; i += 1) {
+        const placedChar = new PositionedCharacter(
+          enemyTeam.members[i],
+          this.getEnemyPosition()
+        );
+        this.positions.push(placedChar);
+      }
+      this.theme = themes.mountain;
+      this.gamePlay.drawUi(this.theme);
+      this.gamePlay.redrawPositions(this.positions);
+    }
+    if (this.level === 5) {
+      alert('game over, you win');
+      location.reload();
+    }
   }
 }

@@ -1,3 +1,6 @@
+import Bowman from './classes/Bowman';
+import Magician from './classes/Magician';
+import Swordsman from './classes/Swordsman';
 import Team from './Team';
 /**
  * Generates random characters
@@ -21,4 +24,30 @@ export function generateTeam(allowedTypes, maxLevel, characterCount) {
     team.add(character);
   }
   return team;
+}
+
+function randomNum(a, b) {
+  const min = Math.ceil(a);
+  const max = Math.floor(b);
+  return Math.floor(Math.random() * (max - min)) + min;
+}
+
+function choseLevel(a) {
+  if (a === 2) return randomNum(1, 2);
+  if (a === 3) return randomNum(1, 3);
+  if (a === 4) return randomNum(1, 4);
+}
+
+export function generateRandon(level) {
+  const char = randomNum(1, 4);
+  const charLevevel = choseLevel(level);
+  if (char === 1) {
+    return new Bowman(charLevevel);
+  }
+  if (char === 2) {
+    return new Magician(charLevevel);
+  }
+  if (char === 3) {
+    return new Swordsman(charLevevel);
+  }
 }
