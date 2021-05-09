@@ -1,3 +1,4 @@
+/* eslint-disable array-callback-return */
 import themes from './themes';
 import { generateTeam, generateRandon } from './generators';
 import Bowman from './classes/Bowman';
@@ -28,30 +29,46 @@ export default class GameController {
   }
 
   init() {
-    console.log(this.stateService);
     // рисуем поле
     this.gamePlay.drawUi(this.theme);
     // создаем команды
     const userTeam = generateTeam([Bowman, Magician, Swordsman], 4, 2);
     const enemyTeam = generateTeam([Daemon, Undead, Vampire], 4, 2);
     // расставляем персонажей
-    const positions = [];
+    const userArr = [];
+    const enemyArr = [];
     for (let i = 0; i < userTeam.members.length; i += 1) {
       const placedChar = new PositionedCharacter(
         userTeam.members[i],
         this.getPlayerPosition(),
       );
-      positions.push(placedChar);
+      userArr.push(placedChar);
     }
     for (let i = 0; i < enemyTeam.members.length; i += 1) {
       const placedChar = new PositionedCharacter(
         enemyTeam.members[i],
         this.getEnemyPosition(),
       );
-      positions.push(placedChar);
+      enemyArr.push(placedChar);
     }
     // рисуем расставленных персонажей
-    this.positions = positions;
+    userArr.sort((a, b) => a.position - b.position);
+    for (let i = 0; i < userArr.length; i += 1) {
+      if (userArr[i + 1]) {
+        if (userArr[i].position === userArr[i + 1].position) {
+          userArr[i + 1].position = this.getPlayerPosition();
+        }
+      }
+    }
+    enemyArr.sort((a, b) => a.position - b.position);
+    for (let i = 0; i < enemyArr.length; i += 1) {
+      if (enemyArr[i + 1]) {
+        if (enemyArr[i].position === enemyArr[i + 1].position) {
+          enemyArr[i + 1].position = this.getEnemyPosition();
+        }
+      }
+    }
+    this.positions = [...enemyArr, ...userArr];
     this.gamePlay.redrawPositions(this.positions);
     // листенеры для клеток
     this.gamePlay.addCellEnterListener(this.onCellEnter.bind(this));
@@ -60,28 +77,23 @@ export default class GameController {
     // TODO: add event listeners to gamePlay events
     // TODO: load saved stated from stateService
     const newGameBtn = Array.from(document.getElementsByClassName('btn')).find(
-      (e) => {
-        return e.dataset.id === 'action-restart';
-      }
+      (e) => e.dataset.id === 'action-restart',
     );
     newGameBtn.addEventListener('click', () => {
-      this.gamePlay.addNewGameListener(location.reload());
+      this.level = 1;
+      this.turn = 0;
+      this.gamePlay.addNewGameListener(this.init());
     });
     const saveBtn = Array.from(document.getElementsByClassName('btn')).find(
-      (e) => {
-        return e.dataset.id === 'action-save';
-      },
+      (e) => e.dataset.id === 'action-save',
     );
     saveBtn.addEventListener('click', () => {
       localStorage.clear();
       const save = GameState.from(this);
       this.localStorage.save(save);
-      console.log(localStorage);
     });
     const loadBtn = Array.from(document.getElementsByClassName('btn')).find(
-      (e) => {
-        return e.dataset.id === 'action-load';
-      }
+      (e) => e.dataset.id === 'action-load',
     );
     loadBtn.addEventListener('click', () => {
       const { theme, positions, level } = this.localStorage.load();
@@ -108,8 +120,8 @@ export default class GameController {
     const field = this.boardSize ** 2;
     const index = Math.floor(Math.random() * field);
     if (
-      (index + 1) % this.boardSize === 0 ||
-      (index + 1) % this.boardSize === this.boardSize - 1
+      (index + 1) % this.boardSize === 0
+      || (index + 1) % this.boardSize === this.boardSize - 1
     ) {
       return index;
     }
@@ -120,10 +132,10 @@ export default class GameController {
     // TODO: react to click
     for (let i = 0; i < this.positions.length; i += 1) {
       if (
-        index === this.positions[i].position &&
-        this.positions[i].character.type !== 'vampire' &&
-        this.positions[i].character.type !== 'undead' &&
-        this.positions[i].character.type !== 'daemon'
+        index === this.positions[i].position
+        && this.positions[i].character.type !== 'vampire'
+        && this.positions[i].character.type !== 'undead'
+        && this.positions[i].character.type !== 'daemon'
       ) {
         for (let a = 0; a < this.boardSize ** 2 - 1; a += 1) {
           this.gamePlay.deselectCell(a);
@@ -132,9 +144,9 @@ export default class GameController {
         this.selectedChar = this.positions.find((item) => {
           if (item.position === index) {
             if (
-              item.character.type === 'vampire' ||
-              item.character.type === 'undead' ||
-              item.character.type === 'daemon'
+              item.character.type === 'vampire'
+              || item.character.type === 'undead'
+              || item.character.type === 'daemon'
             ) {
               GamePlay.showError('This character is not playable');
               return undefined;
@@ -158,12 +170,17 @@ export default class GameController {
       this.gamePlay.setCursor(cursors.notallowed);
       Array.from(this.positions).forEach((e) => {
         if (
-          (e.character.type === 'bowman' ||
-            e.character.type === 'swordsman' ||
-            e.character.type === 'magician') &&
-          e.position === index
+          (e.character.type === 'bowman'
+          || e.character.type === 'swordsman'
+          || e.character.type === 'magician')
+          && e.position === index
         ) {
-          const { level, attack, defence, health } = e.character;
+          const {
+            level,
+            attack,
+            defence,
+            health,
+          } = e.character;
           const message = `${'\u{1F396}'} ${level} ${'\u{2694}'} ${attack} ${'\u{1F6E1}'} ${defence} ${'\u2764'} ${health}`;
           this.gamePlay.showCellTooltip(message, index);
           this.gamePlay.setCursor(cursors.pointer);
@@ -188,7 +205,12 @@ export default class GameController {
     } else {
       for (let i = 0; i < this.positions.length; i += 1) {
         if (index === this.positions[i].position) {
-          const { level, attack, defence, health } = this.positions[
+          const {
+            level,
+            attack,
+            defence,
+            health,
+          } = this.positions[
             i
           ].character;
           const message = `${'\u{1F396}'} ${level} ${'\u{2694}'} ${attack} ${'\u{1F6E1}'} ${defence} ${'\u2764'} ${health}`;
@@ -227,24 +249,28 @@ export default class GameController {
     });
     const { steps } = selectedChar.character;
     const array = [];
+    if (selectedChar.character.type === 'daemon') {
+      
+    }
     for (let i = 1; i <= steps; i += 1) {
       const row = curretPosition[0];
       const column = curretPosition[1];
       if (column - i >= 0) array.push(this.convertIndex([row, column - i]));
-      if (!(column - i >= this.boardSize))
-        array.push(this.convertIndex([row, column + i]));
+      if (!(column - i >= this.boardSize)) array.push(this.convertIndex([row, column + i]));
       array.push(this.convertIndex([row + i, column]));
       array.push(this.convertIndex([row - i, column]));
-      if (row - i >= 0 && column + i < this.boardSize)
+      if (row - i >= 0 && column + i < this.boardSize) {
         array.push(this.convertIndex([row - i, column + i]));
-      if (row + i < this.boardSize && column + i < this.boardSize)
+      }
+      if (row + i < this.boardSize && column + i < this.boardSize) {
         array.push(this.convertIndex([row + i, column + i]));
-      if (row + i < this.boardSize && column - i >= 0)
+      }
+      if (row + i < this.boardSize && column - i >= 0) {
         array.push(this.convertIndex([row + i, column - i]));
-      if (row - i >= 0 && column - i >= 0)
-        array.push(this.convertIndex([row - i, column - i]));
+      }
+      if (row - i >= 0 && column - i >= 0) array.push(this.convertIndex([row - i, column - i]));
     }
-    return array.filter((el) => !othersPositions.includes(el));
+    return array.filter((el) => el >= 0).filter((el) => !othersPositions.includes(el));
   }
 
   canAttack(selectedChar, index) {
@@ -257,34 +283,31 @@ export default class GameController {
     if (this.turn === 0) {
       Array.from(this.positions).forEach((e) => {
         if (
-          e.character.type === 'daemon' ||
-          e.character.type === 'vampire' ||
-          e.character.type === 'undead'
-        )
-          arr.push(e.position);
+          e.character.type === 'daemon'
+          || e.character.type === 'vampire'
+          || e.character.type === 'undead'
+        ) arr.push(e.position);
       });
     } else if (this.turn === 1) {
       Array.from(this.positions).forEach((e) => {
         if (
-          e.character.type === 'swordsman' ||
-          e.character.type === 'magician' ||
-          e.character.type === 'bowman'
-        )
-          arr.push(e.position);
+          e.character.type === 'swordsman'
+          || e.character.type === 'magician'
+          || e.character.type === 'bowman'
+        ) arr.push(e.position);
       });
     }
     if (
-      (curretPosition[0] === target[0] &&
-        Math.abs(curretPosition[1] - target[1]) <= range) || // Горизонталь
-      (curretPosition[1] === target[1] &&
-        Math.abs(curretPosition[0] - target[0]) <= range) || // Вертикаль
-      (Math.abs(curretPosition[1] - target[1]) <= range &&
-        Math.abs(curretPosition[0] - target[0]) <= range)
+      (curretPosition[0] === target[0]
+        && Math.abs(curretPosition[1] - target[1]) <= range) // Горизонталь
+        || (curretPosition[1] === target[1]
+        && Math.abs(curretPosition[0] - target[0]) <= range) // Вертикаль
+        || (Math.abs(curretPosition[1] - target[1]) <= range
+        && Math.abs(curretPosition[0] - target[0]) <= range)
     ) {
       // Диагональ
       for (let i = 0; i <= arr.length; i += 1) {
-        if (this.convertIndex(target) === arr[i])
-          return this.convertIndex(target);
+        if (this.convertIndex(target) === arr[i]) return this.convertIndex(target);
       }
     }
     return false;
@@ -294,8 +317,11 @@ export default class GameController {
     selectedChar.ways.forEach((e) => {
       if (index === e) {
         this.positions.splice(this.positions.indexOf(selectedChar), 1);
+        // eslint-disable-next-line no-param-reassign
         selectedChar.position = index;
+        // eslint-disable-next-line no-param-reassign
         delete selectedChar.ways;
+        // eslint-disable-next-line no-param-reassign
         delete selectedChar.targets;
         this.positions.push(selectedChar);
         this.gamePlay.redrawPositions(this.positions);
@@ -327,7 +353,9 @@ export default class GameController {
         enemy.character.vounded(damage);
         if (enemy.character.health > 0) {
           this.positions.splice(this.positions.indexOf(selectedChar), 1);
+          // eslint-disable-next-line no-param-reassign
           delete selectedChar.ways;
+          // eslint-disable-next-line no-param-reassign
           delete selectedChar.targets;
           this.positions.push(selectedChar);
           this.gamePlay.redrawPositions(this.positions);
@@ -335,7 +363,9 @@ export default class GameController {
         }
         if (enemy.character.health <= 0) {
           this.positions.splice(this.positions.indexOf(selectedChar), 1);
+          // eslint-disable-next-line no-param-reassign
           delete selectedChar.ways;
+          // eslint-disable-next-line no-param-reassign
           delete selectedChar.targets;
           this.positions.push(selectedChar);
           this.positions.splice(this.positions.indexOf(enemy), 1);
@@ -360,33 +390,68 @@ export default class GameController {
     if (this.turn === 1) {
       const aiTeam = this.positions.filter((item) => {
         if (
-          item.character.type === 'daemon' ||
-          item.character.type === 'vampire' ||
-          item.character.type === 'undead'
-        )
-          return item;
+          item.character.type === 'daemon'
+          || item.character.type === 'vampire'
+          || item.character.type === 'undead'
+        ) return item;
       });
       const userTeam = this.positions.filter((item) => {
         if (
-          item.character.type === 'bowman' ||
-          item.character.type === 'swordsman' ||
-          item.character.type === 'magician'
-        )
-          return item;
+          item.character.type === 'bowman'
+          || item.character.type === 'swordsman'
+          || item.character.type === 'magician'
+        ) return item;
       });
-      userTeam.sort((a, b) => {
-        return a.character.defence - b.character.defence;
+      let attacked = false;
+      aiTeam.forEach((e) => {
+        if (!attacked) {
+          for (let i = 0; i < userTeam.length; i += 1) {
+            if (!attacked) {
+              if (this.canAttack(e, userTeam[i].position)) {
+                const target = this.positions.find((item) => {
+                  if (item.position === this.canAttack(e, userTeam[i].position)) return item;
+                });
+                const { defence } = target.character;
+                const { attack } = e.character;
+                attacked = true;
+                const damage = Math.max(attack - defence, attack * 0.1);
+                this.gamePlay.showDamage(target.position, damage).then(() => {
+                  target.character.vounded(damage);
+                  if (target.character.health > 0) {
+                    this.gamePlay.redrawPositions(this.positions);
+                  }
+                  if (target.character.health < 0) {
+                    this.positions.splice(this.positions.indexOf(target), 1);
+                    this.gamePlay.redrawPositions(this.positions);
+                  }
+                });
+              }
+            }
+          }
+        }
       });
-      const arr = [];
-      let killOrder = false;
-      let targetIndex = 0;
-      let atacker = 0;
-      for (let i = 0; i < userTeam.length; i += 1) {
-        arr.push(userTeam[i].position);
+      let moved = false;
+      if (!attacked) {
+        aiTeam.forEach((e) => {
+          if (!moved) {
+            const arr = this.canWalk(e);
+            console.log(arr);
+            const original = e.position;
+            for (let i = 0; i < arr.length; i += 1) {
+              for (let a = 0; a < userTeam.length; a += 1) {
+                e.position = arr[i];
+                console.log(this.canAttack(e, userTeam[a].position));
+                if (this.canAttack(e, userTeam[a].position)) {
+                  this.gamePlay.redrawPositions(this.positions);
+                  moved = true;
+                  return false;
+                }
+              }
+            }
+            if (!moved) e.position = original;
+          }
+        });
       }
-      aiTeam.sort((a, b) => {
-        return b.character.attack - a.character.attack;
-      });
     }
     this.turn = 0;
   }
@@ -394,48 +459,48 @@ export default class GameController {
   checkWinner() {
     const arrUser = Array.from(this.positions).filter((item) => {
       if (
-        item.character.type === 'bowman' ||
-        item.character.type === 'swordsman' ||
-        item.character.type === 'magician'
-      )
-        return true;
+        item.character.type === 'bowman'
+        || item.character.type === 'swordsman'
+        || item.character.type === 'magician'
+      ) return true;
     });
     if (arrUser.length === 0) this.playerLost();
     const arrAi = Array.from(this.positions).filter((item) => {
       if (
-        item.character.type === 'daemon' ||
-        item.character.type === 'vampire' ||
-        item.character.type === 'undead'
-      )
-        return true;
+        item.character.type === 'daemon'
+        || item.character.type === 'vampire'
+        || item.character.type === 'undead'
+      ) return true;
     });
     if (arrAi.length === 0) this.playerWon();
   }
 
   playerLost() {
-    alert('You lost');
-    location.reload();
+    GamePlay.showMessage('You lost');
+    this.init();
   }
 
   playerWon() {
     this.level += 1;
-    alert('you win');
+    GamePlay.showMessage(`You won ${this.level - 1} round`);
     if (this.level === 2) {
-      console.log(generateRandon(this.level));
+      this.positions.forEach((item) => {
+        item.character.levelUp();
+      });
       const char = new PositionedCharacter(
         generateRandon(this.level),
-        this.getPlayerPosition()
+        this.getPlayerPosition(),
       );
       this.positions.push(char);
       const enemyTeam = generateTeam(
         [Daemon, Undead, Vampire],
         4,
-        this.positions.length
+        this.positions.length + 2,
       );
       for (let i = 0; i < enemyTeam.members.length; i += 1) {
         const placedChar = new PositionedCharacter(
           enemyTeam.members[i],
-          this.getEnemyPosition()
+          this.getEnemyPosition(),
         );
         this.positions.push(placedChar);
       }
@@ -444,21 +509,23 @@ export default class GameController {
       this.gamePlay.redrawPositions(this.positions);
     }
     if (this.level === 3) {
-      console.log(generateRandon(this.level));
+      this.positions.forEach((item) => {
+        item.character.levelUp();
+      });
       const char = new PositionedCharacter(
         generateRandon(this.level),
-        this.getPlayerPosition()
+        this.getPlayerPosition(),
       );
       this.positions.push(char);
       const enemyTeam = generateTeam(
         [Daemon, Undead, Vampire],
         4,
-        this.positions.length
+        this.positions.length + 3,
       );
       for (let i = 0; i < enemyTeam.members.length; i += 1) {
         const placedChar = new PositionedCharacter(
           enemyTeam.members[i],
-          this.getEnemyPosition()
+          this.getEnemyPosition(),
         );
         this.positions.push(placedChar);
       }
@@ -467,21 +534,23 @@ export default class GameController {
       this.gamePlay.redrawPositions(this.positions);
     }
     if (this.level === 4) {
-      console.log(generateRandon(this.level));
+      this.positions.forEach((item) => {
+        item.character.levelUp();
+      });
       const char = new PositionedCharacter(
         generateRandon(this.level),
-        this.getPlayerPosition()
+        this.getPlayerPosition(),
       );
       this.positions.push(char);
       const enemyTeam = generateTeam(
         [Daemon, Undead, Vampire],
         4,
-        this.positions.length
+        this.positions.length + 3,
       );
       for (let i = 0; i < enemyTeam.members.length; i += 1) {
         const placedChar = new PositionedCharacter(
           enemyTeam.members[i],
-          this.getEnemyPosition()
+          this.getEnemyPosition(),
         );
         this.positions.push(placedChar);
       }
@@ -490,8 +559,10 @@ export default class GameController {
       this.gamePlay.redrawPositions(this.positions);
     }
     if (this.level === 5) {
-      alert('game over, you win');
-      location.reload();
+      GamePlay.showMessage('game over, you win');
+      this.level = 1;
+      this.theme = themes.prairie;
+      this.init();
     }
   }
 }
