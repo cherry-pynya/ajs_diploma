@@ -1,5 +1,7 @@
 # AJS. Retro Game
 
+# Все 17 пунктов реализованны.
+
 ###### tags: `netology` `advanced js`
 
 ## Предыстория
