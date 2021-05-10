@@ -242,35 +242,66 @@ export default class GameController {
 
   canWalk(selectedChar) {
     // получаем массив с возможными ячейками для передвидения
-    const curretPosition = this.convertIndex(selectedChar.position);
-    const othersPositions = [];
-    Array.from(this.positions).forEach((e) => {
-      othersPositions.push(e.position);
-    });
-    const { steps } = selectedChar.character;
-    const array = [];
-    if (selectedChar.character.type === 'daemon') {
-      
+    if (selectedChar.character.type === 'swordsman'
+      || selectedChar.character.type === 'magician'
+      || selectedChar.character.type === 'bowman') {
+      const curretPosition = this.convertIndex(selectedChar.position);
+      const othersPositions = [];
+      Array.from(this.positions).forEach((e) => {
+        othersPositions.push(e.position);
+      });
+      const { steps } = selectedChar.character;
+      const array = [];
+      for (let i = 1; i <= steps; i += 1) {
+        const row = curretPosition[0];
+        const column = curretPosition[1];
+        if (column - i >= 0) array.push(this.convertIndex([row, column - i]));
+        if (!(column - i >= this.boardSize)) array.push(this.convertIndex([row, column + i]));
+        array.push(this.convertIndex([row + i, column]));
+        array.push(this.convertIndex([row - i, column]));
+        if (row - i >= 0 && column + i < this.boardSize) {
+          array.push(this.convertIndex([row - i, column + i]));
+        }
+        if (row + i < this.boardSize && column + i < this.boardSize) {
+          array.push(this.convertIndex([row + i, column + i]));
+        }
+        if (row + i < this.boardSize && column - i >= 0) {
+          array.push(this.convertIndex([row + i, column - i]));
+        }
+        if (row - i >= 0 && column - i >= 0) array.push(this.convertIndex([row - i, column - i]));
+      }
+      return array.filter((el) => el >= 0).filter((el) => !othersPositions.includes(el));
     }
-    for (let i = 1; i <= steps; i += 1) {
-      const row = curretPosition[0];
-      const column = curretPosition[1];
-      if (column - i >= 0) array.push(this.convertIndex([row, column - i]));
-      if (!(column - i >= this.boardSize)) array.push(this.convertIndex([row, column + i]));
-      array.push(this.convertIndex([row + i, column]));
-      array.push(this.convertIndex([row - i, column]));
-      if (row - i >= 0 && column + i < this.boardSize) {
-        array.push(this.convertIndex([row - i, column + i]));
+    if (selectedChar.character.type === 'daemon'
+      || selectedChar.character.type === 'vampire'
+      || selectedChar.character.type === 'undead') {
+      const curretPosition = this.convertIndex(selectedChar.position);
+      const othersPositions = [];
+      Array.from(this.positions).forEach((e) => {
+        othersPositions.push(e.position);
+      });
+      const { steps } = selectedChar.character;
+      const array = [];
+      for (let i = 1; i <= steps; i += 1) {
+        const row = curretPosition[0];
+        const column = curretPosition[1];
+        if (column - i >= 0) array.push(this.convertIndex([row, column - i]));
+        array.push(this.convertIndex([row - i, column]));
+        if (!(row + i >= this.boardSize)) array.push(this.convertIndex([row + i, column]));
+        if (row - i >= 0 && column + i < this.boardSize) {
+          array.push(this.convertIndex([row - i, column + i]));
+        }
+        if (row + i < this.boardSize && column + i < this.boardSize) {
+          array.push(this.convertIndex([row + i, column + i]));
+        }
+        if (row + i < this.boardSize && column - i >= 0) {
+          array.push(this.convertIndex([row + i, column - i]));
+        }
+        if (row - i >= 0 && column - i >= 0) array.push(this.convertIndex([row - i, column - i]));
       }
-      if (row + i < this.boardSize && column + i < this.boardSize) {
-        array.push(this.convertIndex([row + i, column + i]));
-      }
-      if (row + i < this.boardSize && column - i >= 0) {
-        array.push(this.convertIndex([row + i, column - i]));
-      }
-      if (row - i >= 0 && column - i >= 0) array.push(this.convertIndex([row - i, column - i]));
+      return array.filter((el) => el >= 0).filter((el) => !othersPositions.includes(el));
     }
-    return array.filter((el) => el >= 0).filter((el) => !othersPositions.includes(el));
+    return false;
   }
 
   canAttack(selectedChar, index) {
@@ -435,12 +466,10 @@ export default class GameController {
         aiTeam.forEach((e) => {
           if (!moved) {
             const arr = this.canWalk(e);
-            console.log(arr);
             const original = e.position;
             for (let i = 0; i < arr.length; i += 1) {
               for (let a = 0; a < userTeam.length; a += 1) {
                 e.position = arr[i];
-                console.log(this.canAttack(e, userTeam[a].position));
                 if (this.canAttack(e, userTeam[a].position)) {
                   this.gamePlay.redrawPositions(this.positions);
                   moved = true;
@@ -448,7 +477,17 @@ export default class GameController {
                 }
               }
             }
-            if (!moved) e.position = original;
+            if (!moved) {
+              e.position = original;
+              const userPos = [];
+              userTeam.forEach((item) => userPos.push(item.position));
+              const index = (Math.random() * (userPos.length - 0) + 0);
+              const victim = userPos[index];
+              const goTo = arr.reduce((prev, curr) => (Math.abs(curr - victim) < Math.abs(prev - victim) ? curr : prev));
+              e.position = goTo;
+              this.gamePlay.redrawPositions(this.positions);
+              moved = true;
+            }
           }
         });
       }
@@ -520,7 +559,7 @@ export default class GameController {
       const enemyTeam = generateTeam(
         [Daemon, Undead, Vampire],
         4,
-        this.positions.length + 3,
+        this.positions.length + 2,
       );
       for (let i = 0; i < enemyTeam.members.length; i += 1) {
         const placedChar = new PositionedCharacter(
@@ -545,7 +584,7 @@ export default class GameController {
       const enemyTeam = generateTeam(
         [Daemon, Undead, Vampire],
         4,
-        this.positions.length + 3,
+        this.positions.length + 2,
       );
       for (let i = 0; i < enemyTeam.members.length; i += 1) {
         const placedChar = new PositionedCharacter(
