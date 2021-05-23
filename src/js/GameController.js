@@ -76,25 +76,19 @@ export default class GameController {
     this.gamePlay.addCellClickListener(this.onCellClick.bind(this));
     // TODO: add event listeners to gamePlay events
     // TODO: load saved stated from stateService
-    const newGameBtn = Array.from(document.getElementsByClassName('btn')).find(
-      (e) => e.dataset.id === 'action-restart',
-    );
+    const newGameBtn = document.querySelector('button[data-id=action-restart]');
     newGameBtn.addEventListener('click', () => {
       this.level = 1;
       this.turn = 0;
       this.gamePlay.addNewGameListener(this.init());
     });
-    const saveBtn = Array.from(document.getElementsByClassName('btn')).find(
-      (e) => e.dataset.id === 'action-save',
-    );
+    const saveBtn = document.querySelector('button[data-id=action-save]');
     saveBtn.addEventListener('click', () => {
       localStorage.clear();
       const save = GameState.from(this);
       this.localStorage.save(save);
     });
-    const loadBtn = Array.from(document.getElementsByClassName('btn')).find(
-      (e) => e.dataset.id === 'action-load',
-    );
+    const loadBtn = document.querySelector('button[data-id=action-load]');
     loadBtn.addEventListener('click', () => {
       const { theme, positions, level } = this.localStorage.load();
       this.theme = theme;
@@ -103,6 +97,7 @@ export default class GameController {
       this.gamePlay.drawUi(this.theme);
       this.gamePlay.redrawPositions(this.positions);
     });
+    console.log(this.positions)
   }
 
   // генерация позиций игрока
@@ -496,7 +491,7 @@ export default class GameController {
   }
 
   checkWinner() {
-    const arrUser = Array.from(this.positions).filter((item) => {
+    const arrUser = this.positions.filter((item) => {
       if (
         item.character.type === 'bowman'
         || item.character.type === 'swordsman'
@@ -504,7 +499,7 @@ export default class GameController {
       ) return true;
     });
     if (arrUser.length === 0) this.playerLost();
-    const arrAi = Array.from(this.positions).filter((item) => {
+    const arrAi = this.positions.filter((item) => {
       if (
         item.character.type === 'daemon'
         || item.character.type === 'vampire'

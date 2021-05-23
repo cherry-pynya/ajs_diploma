@@ -10,6 +10,9 @@ export default class Character {
   }
 
   vounded(damage) {
+    if (!Number.isInteger(damage) || damage < 0) {
+      throw new Error('invalid damage value');
+    };
     this.health -= damage;
     return this.health;
   }
