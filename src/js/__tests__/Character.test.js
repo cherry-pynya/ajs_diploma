@@ -40,10 +40,3 @@ test('invalid damage < 0', () => {
     mage.vounded(-1);
   }).toThrowError('invalid damage value');
 });
-
-test('invalid damage not number', () => {
-  const mage = new Magician();
-  expect(() => {
-    mage.vounded('dffd');
-  }).toThrowError('invalid damage value');
-});

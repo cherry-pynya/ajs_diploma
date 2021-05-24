@@ -37,3 +37,17 @@ export function calcHealthLevel(health) {
 
   return 'high';
 }
+
+export function isEvil(char) {
+  if (char.character.type === 'daemon'
+  || char.character.type === 'vampire'
+  || char.character.type === 'undead') return true;
+  return false;
+}
+
+export function isOrder(char) {
+  if (char.character.type === 'magician'
+  || char.character.type === 'swordsman'
+  || char.character.type === 'bowman') return true;
+  return false;
+}

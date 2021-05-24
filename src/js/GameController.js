@@ -12,6 +12,7 @@ import cursors from './cursors';
 import GamePlay from './GamePlay';
 import GameState from './GameState';
 import GameStateService from './GameStateService';
+import { isEvil, isOrder } from './utils';
 
 export default class GameController {
   constructor(gamePlay, stateService) {
@@ -97,7 +98,6 @@ export default class GameController {
       this.gamePlay.drawUi(this.theme);
       this.gamePlay.redrawPositions(this.positions);
     });
-    console.log(this.positions)
   }
 
   // генерация позиций игрока
@@ -128,9 +128,7 @@ export default class GameController {
     for (let i = 0; i < this.positions.length; i += 1) {
       if (
         index === this.positions[i].position
-        && this.positions[i].character.type !== 'vampire'
-        && this.positions[i].character.type !== 'undead'
-        && this.positions[i].character.type !== 'daemon'
+        && isOrder(this.positions[i])
       ) {
         for (let a = 0; a < this.boardSize ** 2 - 1; a += 1) {
           this.gamePlay.deselectCell(a);
@@ -138,11 +136,7 @@ export default class GameController {
         this.gamePlay.selectCell(index);
         this.selectedChar = this.positions.find((item) => {
           if (item.position === index) {
-            if (
-              item.character.type === 'vampire'
-              || item.character.type === 'undead'
-              || item.character.type === 'daemon'
-            ) {
+            if (isEvil(item)) {
               GamePlay.showError('This character is not playable');
               return undefined;
             }
@@ -163,19 +157,17 @@ export default class GameController {
     // TODO: react to mouse enter
     if (this.selectedChar) {
       this.gamePlay.setCursor(cursors.notallowed);
-      Array.from(this.positions).forEach((e) => {
+      this.positions.forEach((el) => {
         if (
-          (e.character.type === 'bowman'
-          || e.character.type === 'swordsman'
-          || e.character.type === 'magician')
-          && e.position === index
+          (isOrder(el))
+          && el.position === index
         ) {
           const {
             level,
             attack,
             defence,
             health,
-          } = e.character;
+          } = el.character;
           const message = `${'\u{1F396}'} ${level} ${'\u{2694}'} ${attack} ${'\u{1F6E1}'} ${defence} ${'\u2764'} ${health}`;
           this.gamePlay.showCellTooltip(message, index);
           this.gamePlay.setCursor(cursors.pointer);
@@ -237,9 +229,7 @@ export default class GameController {
 
   canWalk(selectedChar) {
     // получаем массив с возможными ячейками для передвидения
-    if (selectedChar.character.type === 'swordsman'
-      || selectedChar.character.type === 'magician'
-      || selectedChar.character.type === 'bowman') {
+    if (isOrder(selectedChar)) {
       const curretPosition = this.convertIndex(selectedChar.position);
       const othersPositions = [];
       Array.from(this.positions).forEach((e) => {
@@ -267,9 +257,7 @@ export default class GameController {
       }
       return array.filter((el) => el >= 0).filter((el) => !othersPositions.includes(el));
     }
-    if (selectedChar.character.type === 'daemon'
-      || selectedChar.character.type === 'vampire'
-      || selectedChar.character.type === 'undead') {
+    if (isEvil(selectedChar)) {
       const curretPosition = this.convertIndex(selectedChar.position);
       const othersPositions = [];
       Array.from(this.positions).forEach((e) => {
@@ -307,20 +295,12 @@ export default class GameController {
     const target = this.convertIndex(index);
     const arr = [];
     if (this.turn === 0) {
-      Array.from(this.positions).forEach((e) => {
-        if (
-          e.character.type === 'daemon'
-          || e.character.type === 'vampire'
-          || e.character.type === 'undead'
-        ) arr.push(e.position);
+      this.positions.forEach((el) => {
+        if (isEvil(el)) arr.push(el.position);
       });
     } else if (this.turn === 1) {
-      Array.from(this.positions).forEach((e) => {
-        if (
-          e.character.type === 'swordsman'
-          || e.character.type === 'magician'
-          || e.character.type === 'bowman'
-        ) arr.push(e.position);
+      this.positions.forEach((el) => {
+        if (isOrder(el)) arr.push(el.position);
       });
     }
     if (
@@ -415,30 +395,22 @@ export default class GameController {
   ai() {
     if (this.turn === 1) {
       const aiTeam = this.positions.filter((item) => {
-        if (
-          item.character.type === 'daemon'
-          || item.character.type === 'vampire'
-          || item.character.type === 'undead'
-        ) return item;
+        if (isEvil(item)) return item;
       });
       const userTeam = this.positions.filter((item) => {
-        if (
-          item.character.type === 'bowman'
-          || item.character.type === 'swordsman'
-          || item.character.type === 'magician'
-        ) return item;
+        if (isOrder(item)) return item;
       });
       let attacked = false;
-      aiTeam.forEach((e) => {
+      aiTeam.forEach((el) => {
         if (!attacked) {
           for (let i = 0; i < userTeam.length; i += 1) {
             if (!attacked) {
-              if (this.canAttack(e, userTeam[i].position)) {
+              if (this.canAttack(el, userTeam[i].position)) {
                 const target = this.positions.find((item) => {
-                  if (item.position === this.canAttack(e, userTeam[i].position)) return item;
+                  if (item.position === this.canAttack(el, userTeam[i].position)) return item;
                 });
                 const { defence } = target.character;
-                const { attack } = e.character;
+                const { attack } = el.character;
                 attacked = true;
                 const damage = Math.max(attack - defence, attack * 0.1);
                 this.gamePlay.showDamage(target.position, damage).then(() => {
@@ -458,14 +430,15 @@ export default class GameController {
       });
       let moved = false;
       if (!attacked) {
-        aiTeam.forEach((e) => {
+        aiTeam.forEach((el) => {
           if (!moved) {
-            const arr = this.canWalk(e);
-            const original = e.position;
+            const arr = this.canWalk(el);
+            const original = el.position;
             for (let i = 0; i < arr.length; i += 1) {
               for (let a = 0; a < userTeam.length; a += 1) {
-                e.position = arr[i];
-                if (this.canAttack(e, userTeam[a].position)) {
+                // eslint-disable-next-line no-param-reassign
+                el.position = arr[i];
+                if (this.canAttack(el, userTeam[a].position)) {
                   this.gamePlay.redrawPositions(this.positions);
                   moved = true;
                   return false;
@@ -473,13 +446,15 @@ export default class GameController {
               }
             }
             if (!moved) {
-              e.position = original;
+              // eslint-disable-next-line no-param-reassign
+              el.position = original;
               const userPos = [];
               userTeam.forEach((item) => userPos.push(item.position));
               const index = (Math.random() * (userPos.length - 0) + 0);
               const victim = userPos[index];
               const goTo = arr.reduce((prev, curr) => (Math.abs(curr - victim) < Math.abs(prev - victim) ? curr : prev));
-              e.position = goTo;
+              // eslint-disable-next-line no-param-reassign
+              el.position = goTo;
               this.gamePlay.redrawPositions(this.positions);
               moved = true;
             }
@@ -492,19 +467,11 @@ export default class GameController {
 
   checkWinner() {
     const arrUser = this.positions.filter((item) => {
-      if (
-        item.character.type === 'bowman'
-        || item.character.type === 'swordsman'
-        || item.character.type === 'magician'
-      ) return true;
+      if (isOrder(item)) return true;
     });
     if (arrUser.length === 0) this.playerLost();
     const arrAi = this.positions.filter((item) => {
-      if (
-        item.character.type === 'daemon'
-        || item.character.type === 'vampire'
-        || item.character.type === 'undead'
-      ) return true;
+      if (isEvil(item)) return true;
     });
     if (arrAi.length === 0) this.playerWon();
   }
