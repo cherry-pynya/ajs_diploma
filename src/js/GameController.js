@@ -566,4 +566,8 @@ export default class GameController {
       this.init();
     }
   }
+
+  check() {
+    return 1;
+  }
 }
