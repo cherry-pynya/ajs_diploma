@@ -1,3 +1,5 @@
+/* eslint-disable max-len */
+/* eslint-disable consistent-return */
 /* eslint-disable array-callback-return */
 import themes from './themes';
 import { generateTeam, generateRandon } from './generators';
@@ -12,7 +14,14 @@ import cursors from './cursors';
 import GamePlay from './GamePlay';
 import GameState from './GameState';
 import GameStateService from './GameStateService';
-import { isEvil, isOrder } from './utils';
+import {
+  isEvil,
+  isOrder,
+  convertToArr,
+  convertToIndex,
+  sortPositions,
+  template,
+} from './utils';
 
 export default class GameController {
   constructor(gamePlay, stateService) {
@@ -39,37 +48,19 @@ export default class GameController {
     const userArr = [];
     const enemyArr = [];
     for (let i = 0; i < userTeam.members.length; i += 1) {
-      const placedChar = new PositionedCharacter(
+      const placedUserChar = new PositionedCharacter(
         userTeam.members[i],
         this.getPlayerPosition(),
       );
-      userArr.push(placedChar);
-    }
-    for (let i = 0; i < enemyTeam.members.length; i += 1) {
-      const placedChar = new PositionedCharacter(
+      const placedEnemyChar = new PositionedCharacter(
         enemyTeam.members[i],
         this.getEnemyPosition(),
       );
-      enemyArr.push(placedChar);
+      userArr.push(placedUserChar);
+      enemyArr.push(placedEnemyChar);
     }
     // рисуем расставленных персонажей
-    userArr.sort((a, b) => a.position - b.position);
-    for (let i = 0; i < userArr.length; i += 1) {
-      if (userArr[i + 1]) {
-        if (userArr[i].position === userArr[i + 1].position) {
-          userArr[i + 1].position = this.getPlayerPosition();
-        }
-      }
-    }
-    enemyArr.sort((a, b) => a.position - b.position);
-    for (let i = 0; i < enemyArr.length; i += 1) {
-      if (enemyArr[i + 1]) {
-        if (enemyArr[i].position === enemyArr[i + 1].position) {
-          enemyArr[i + 1].position = this.getEnemyPosition();
-        }
-      }
-    }
-    this.positions = [...enemyArr, ...userArr];
+    this.positions = sortPositions([...enemyArr, ...userArr]);
     this.gamePlay.redrawPositions(this.positions);
     // листенеры для клеток
     this.gamePlay.addCellEnterListener(this.onCellEnter.bind(this));
@@ -77,18 +68,30 @@ export default class GameController {
     this.gamePlay.addCellClickListener(this.onCellClick.bind(this));
     // TODO: add event listeners to gamePlay events
     // TODO: load saved stated from stateService
+    this.newGameBtn();
+    this.saveBtn();
+    this.loadBtn();
+  }
+
+  newGameBtn() {
     const newGameBtn = document.querySelector('button[data-id=action-restart]');
     newGameBtn.addEventListener('click', () => {
       this.level = 1;
       this.turn = 0;
       this.gamePlay.addNewGameListener(this.init());
     });
+  }
+
+  saveBtn() {
     const saveBtn = document.querySelector('button[data-id=action-save]');
     saveBtn.addEventListener('click', () => {
       localStorage.clear();
       const save = GameState.from(this);
       this.localStorage.save(save);
     });
+  }
+
+  loadBtn() {
     const loadBtn = document.querySelector('button[data-id=action-load]');
     loadBtn.addEventListener('click', () => {
       const { theme, positions, level } = this.localStorage.load();
@@ -192,15 +195,8 @@ export default class GameController {
     } else {
       for (let i = 0; i < this.positions.length; i += 1) {
         if (index === this.positions[i].position) {
-          const {
-            level,
-            attack,
-            defence,
-            health,
-          } = this.positions[
-            i
-          ].character;
-          const message = `${'\u{1F396}'} ${level} ${'\u{2694}'} ${attack} ${'\u{1F6E1}'} ${defence} ${'\u2764'} ${health}`;
+          const message = template(this.positions[i].character);
+          console.log(this.positions[i].character);
           this.gamePlay.showCellTooltip(message, index);
           this.gamePlay.setCursor(cursors.pointer);
         }
@@ -214,23 +210,10 @@ export default class GameController {
     this.gamePlay.setCursor(cursors.auto);
   }
 
-  // вспомогательные методы
-  convertIndex(index) {
-    // конвертирует индекс клетки в формат [x, y] и наоборот
-    if (Array.isArray(index)) {
-      const row = index[0];
-      const column = index[1];
-      return row * this.boardSize + column;
-    }
-    const row = Math.floor(index / this.boardSize);
-    const colunm = index % this.boardSize;
-    return [row, colunm];
-  }
-
   canWalk(selectedChar) {
     // получаем массив с возможными ячейками для передвидения
     if (isOrder(selectedChar)) {
-      const curretPosition = this.convertIndex(selectedChar.position);
+      const curretPosition = convertToArr(selectedChar.position);
       const othersPositions = [];
       Array.from(this.positions).forEach((e) => {
         othersPositions.push(e.position);
@@ -240,25 +223,25 @@ export default class GameController {
       for (let i = 1; i <= steps; i += 1) {
         const row = curretPosition[0];
         const column = curretPosition[1];
-        if (column - i >= 0) array.push(this.convertIndex([row, column - i]));
-        if (!(column - i >= this.boardSize)) array.push(this.convertIndex([row, column + i]));
-        array.push(this.convertIndex([row + i, column]));
-        array.push(this.convertIndex([row - i, column]));
+        if (column - i >= 0) array.push(convertToIndex([row, column - i]));
+        if (!(column - i >= this.boardSize)) array.push(convertToIndex([row, column + i]));
+        array.push(convertToIndex([row + i, column]));
+        array.push(convertToIndex([row - i, column]));
         if (row - i >= 0 && column + i < this.boardSize) {
-          array.push(this.convertIndex([row - i, column + i]));
+          array.push(convertToIndex([row - i, column + i]));
         }
         if (row + i < this.boardSize && column + i < this.boardSize) {
-          array.push(this.convertIndex([row + i, column + i]));
+          array.push(convertToIndex([row + i, column + i]));
         }
         if (row + i < this.boardSize && column - i >= 0) {
-          array.push(this.convertIndex([row + i, column - i]));
+          array.push(convertToIndex([row + i, column - i]));
         }
-        if (row - i >= 0 && column - i >= 0) array.push(this.convertIndex([row - i, column - i]));
+        if (row - i >= 0 && column - i >= 0) array.push(convertToIndex([row - i, column - i]));
       }
       return array.filter((el) => el >= 0).filter((el) => !othersPositions.includes(el));
     }
     if (isEvil(selectedChar)) {
-      const curretPosition = this.convertIndex(selectedChar.position);
+      const curretPosition = convertToArr(selectedChar.position);
       const othersPositions = [];
       Array.from(this.positions).forEach((e) => {
         othersPositions.push(e.position);
@@ -268,19 +251,19 @@ export default class GameController {
       for (let i = 1; i <= steps; i += 1) {
         const row = curretPosition[0];
         const column = curretPosition[1];
-        if (column - i >= 0) array.push(this.convertIndex([row, column - i]));
-        array.push(this.convertIndex([row - i, column]));
-        if (!(row + i >= this.boardSize)) array.push(this.convertIndex([row + i, column]));
+        if (column - i >= 0) array.push(convertToIndex([row, column - i]));
+        array.push(convertToIndex([row - i, column]));
+        if (!(row + i >= this.boardSize)) array.push(convertToIndex([row + i, column]));
         if (row - i >= 0 && column + i < this.boardSize) {
-          array.push(this.convertIndex([row - i, column + i]));
+          array.push(convertToIndex([row - i, column + i]));
         }
         if (row + i < this.boardSize && column + i < this.boardSize) {
-          array.push(this.convertIndex([row + i, column + i]));
+          array.push(convertToIndex([row + i, column + i]));
         }
         if (row + i < this.boardSize && column - i >= 0) {
-          array.push(this.convertIndex([row + i, column - i]));
+          array.push(convertToIndex([row + i, column - i]));
         }
-        if (row - i >= 0 && column - i >= 0) array.push(this.convertIndex([row - i, column - i]));
+        if (row - i >= 0 && column - i >= 0) array.push(convertToIndex([row - i, column - i]));
       }
       return array.filter((el) => el >= 0).filter((el) => !othersPositions.includes(el));
     }
@@ -290,9 +273,9 @@ export default class GameController {
   canAttack(selectedChar, index) {
     // получаем координаты врага, которого можно атаковать
     if (selectedChar === undefined) return false;
-    const curretPosition = this.convertIndex(selectedChar.position);
+    const curretPosition = convertToArr(selectedChar.position);
     const { range } = selectedChar.character;
-    const target = this.convertIndex(index);
+    const target = convertToArr(index);
     const arr = [];
     if (this.turn === 0) {
       this.positions.forEach((el) => {
@@ -313,35 +296,34 @@ export default class GameController {
     ) {
       // Диагональ
       for (let i = 0; i <= arr.length; i += 1) {
-        if (this.convertIndex(target) === arr[i]) return this.convertIndex(target);
+        if (convertToIndex(target) === arr[i]) return convertToIndex(target);
       }
     }
     return false;
   }
 
   moveChar(selectedChar, index) {
-    selectedChar.ways.forEach((e) => {
-      if (index === e) {
-        this.positions.splice(this.positions.indexOf(selectedChar), 1);
-        // eslint-disable-next-line no-param-reassign
-        selectedChar.position = index;
-        // eslint-disable-next-line no-param-reassign
-        delete selectedChar.ways;
-        // eslint-disable-next-line no-param-reassign
-        delete selectedChar.targets;
-        this.positions.push(selectedChar);
-        this.gamePlay.redrawPositions(this.positions);
-        this.selectedChar = undefined;
-        if (this.turn === 0) {
-          this.turn = 1;
-        } else {
-          this.turn = 0;
-        }
-        this.ai();
-        this.checkWinner();
-        for (let a = 0; a < this.boardSize ** 2 - 1; a += 1) {
-          this.gamePlay.deselectCell(a);
-        }
+    selectedChar.ways.forEach((el) => {
+      if (!(index === el)) return;
+      this.positions.splice(this.positions.indexOf(selectedChar), 1);
+      // eslint-disable-next-line no-param-reassign
+      selectedChar.position = index;
+      // eslint-disable-next-line no-param-reassign
+      delete selectedChar.ways;
+      // eslint-disable-next-line no-param-reassign
+      delete selectedChar.targets;
+      this.positions.push(selectedChar);
+      this.gamePlay.redrawPositions(this.positions);
+      this.selectedChar = undefined;
+      if (this.turn === 0) {
+        this.turn = 1;
+      } else {
+        this.turn = 0;
+      }
+      this.ai();
+      this.checkWinner();
+      for (let a = 0; a < this.boardSize ** 2 - 1; a += 1) {
+        this.gamePlay.deselectCell(a);
       }
     });
   }

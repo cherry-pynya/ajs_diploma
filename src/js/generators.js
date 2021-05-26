@@ -1,3 +1,4 @@
+/* eslint-disable consistent-return */
 import Bowman from './classes/Bowman';
 import Magician from './classes/Magician';
 import Swordsman from './classes/Swordsman';
