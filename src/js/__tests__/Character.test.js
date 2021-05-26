@@ -3,6 +3,7 @@ import Magician from '../classes/Magician';
 
 test('call with new Character()', () => {
   expect(() => {
+    // eslint-disable-next-line no-unused-vars
     const char = new Character();
   }).toThrowError('Character must be calleb throug child');
 });
@@ -22,7 +23,7 @@ test('call Magician', () => {
 
 test('vound', () => {
   const mage = new Magician();
-  mage.vounded(5)
+  mage.vounded(5);
   expect(mage).toEqual({
     attack: 40,
     defence: 10,
@@ -30,7 +31,7 @@ test('vound', () => {
     level: undefined,
     range: 4,
     steps: 1,
-    type: 'magician'
+    type: 'magician',
   });
 });
 
