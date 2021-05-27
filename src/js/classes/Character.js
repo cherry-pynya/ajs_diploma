@@ -1,9 +1,10 @@
 export default class Character {
-  constructor(level, type = 'generic') {
+  constructor(level, type = 'generic', attack) {
     // TODO: throw error if user use "new Character()"
     if (new.target === Character) throw new Error('Character must be calleb throug child');
     this.level = level;
     this.type = type;
+    this.attack = attack;
     this.health = 50;
   }
 

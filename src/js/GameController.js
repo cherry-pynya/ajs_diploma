@@ -94,6 +94,10 @@ export default class GameController {
   loadBtn() {
     const loadBtn = document.querySelector('button[data-id=action-load]');
     loadBtn.addEventListener('click', () => {
+      if (this.localStorage.load() === null) {
+        GamePlay.showMessage('No saved Game');
+        return false;
+      }
       const { theme, positions, level } = this.localStorage.load();
       this.theme = theme;
       this.positions = positions;
@@ -165,22 +169,9 @@ export default class GameController {
           (isOrder(el))
           && el.position === index
         ) {
-          const {
-            level,
-            attack,
-            defence,
-            health,
-          } = el.character;
-          const message = `${'\u{1F396}'} ${level} ${'\u{2694}'} ${attack} ${'\u{1F6E1}'} ${defence} ${'\u2764'} ${health}`;
+          const message = template(el.character);
           this.gamePlay.showCellTooltip(message, index);
           this.gamePlay.setCursor(cursors.pointer);
-        }
-      });
-      const greenCell = document.getElementsByClassName('cell');
-      Array.from(greenCell).forEach((element) => {
-        if (element.classList.contains('selected-green')) {
-          element.classList.remove('selected-green');
-          element.classList.remove('selected');
         }
       });
       this.selectedChar.ways.forEach((element) => {
@@ -196,7 +187,6 @@ export default class GameController {
       for (let i = 0; i < this.positions.length; i += 1) {
         if (index === this.positions[i].position) {
           const message = template(this.positions[i].character);
-          console.log(this.positions[i].character);
           this.gamePlay.showCellTooltip(message, index);
           this.gamePlay.setCursor(cursors.pointer);
         }
@@ -206,6 +196,10 @@ export default class GameController {
 
   onCellLeave(index) {
     // TODO: react to mouse leave
+    if (document.querySelector('.selected-green') !== null) {
+      document.querySelector('.selected-green').classList.remove('selected');
+      document.querySelector('.selected-green').classList.remove('selected-green');
+    }
     this.gamePlay.hideCellTooltip(index);
     this.gamePlay.setCursor(cursors.auto);
   }
