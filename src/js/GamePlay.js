@@ -1,3 +1,4 @@
+/* eslint-disable no-alert */
 /* eslint-disable arrow-parens */
 import { calcHealthLevel, calcTileType } from './utils';
 
