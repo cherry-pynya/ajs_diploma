@@ -47,13 +47,13 @@ export default class GameController {
     // расставляем персонажей
     const userArr = [];
     const enemyArr = [];
-    for (let i = 0; i < userTeam.members.length; i += 1) {
+    for (let i = 0; i < userTeam.length; i += 1) {
       const placedUserChar = new PositionedCharacter(
-        userTeam.members[i],
+        userTeam[i],
         this.getPlayerPosition(),
       );
       const placedEnemyChar = new PositionedCharacter(
-        enemyTeam.members[i],
+        enemyTeam[i],
         this.getEnemyPosition(),
       );
       userArr.push(placedUserChar);

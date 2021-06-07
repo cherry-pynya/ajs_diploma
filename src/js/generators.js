@@ -1,3 +1,4 @@
+/* eslint-disable guard-for-in */
 /* eslint-disable consistent-return */
 import Bowman from './classes/Bowman';
 import Magician from './classes/Magician';
@@ -24,7 +25,9 @@ export function generateTeam(allowedTypes, maxLevel, characterCount) {
     const character = characterGenerator(allowedTypes, maxLevel).next().value;
     team.add(character);
   }
-  return team;
+  for (const key in team) {
+    return team[key];
+  }
 }
 
 function randomNum(a, b) {
