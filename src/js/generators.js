@@ -25,9 +25,7 @@ export function generateTeam(allowedTypes, maxLevel, characterCount) {
     const character = characterGenerator(allowedTypes, maxLevel).next().value;
     team.add(character);
   }
-  for (const key in team) {
-    return team[key];
-  }
+  return team.members;
 }
 
 function randomNum(a, b) {
