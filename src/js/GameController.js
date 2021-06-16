@@ -1,3 +1,5 @@
+/* eslint-disable class-methods-use-this */
+/* eslint-disable no-param-reassign */
 /* eslint-disable max-len */
 /* eslint-disable consistent-return */
 /* eslint-disable array-callback-return */
@@ -22,6 +24,7 @@ import {
   sortPositions,
   template,
 } from './utils';
+import reviveChar from './reviveChar';
 
 export default class GameController {
   constructor(gamePlay, stateService) {
@@ -45,8 +48,8 @@ export default class GameController {
     const userTeam = generateTeam([Bowman, Magician, Swordsman], 4, 2);
     const enemyTeam = generateTeam([Daemon, Undead, Vampire], 4, 2);
     // расставляем персонажей
-    const userArr = [];
-    const enemyArr = [];
+    this.userArr = [];
+    this.enemyArr = [];
     for (let i = 0; i < userTeam.length; i += 1) {
       const placedUserChar = new PositionedCharacter(
         userTeam[i],
@@ -56,11 +59,11 @@ export default class GameController {
         enemyTeam[i],
         this.getEnemyPosition(),
       );
-      userArr.push(placedUserChar);
-      enemyArr.push(placedEnemyChar);
+      this.userArr.push(placedUserChar);
+      this.enemyArr.push(placedEnemyChar);
     }
     // рисуем расставленных персонажей
-    this.positions = sortPositions([...enemyArr, ...userArr]);
+    this.positions = sortPositions([...this.enemyArr, ...this.userArr]);
     this.gamePlay.redrawPositions(this.positions);
     // листенеры для клеток
     this.gamePlay.addCellEnterListener(this.onCellEnter.bind(this));
@@ -68,17 +71,17 @@ export default class GameController {
     this.gamePlay.addCellClickListener(this.onCellClick.bind(this));
     // TODO: add event listeners to gamePlay events
     // TODO: load saved stated from stateService
-    this.newGameBtn();
-    this.saveBtn();
-    this.loadBtn();
+    this.initButtons();
   }
 
   newGameBtn() {
     const newGameBtn = document.querySelector('button[data-id=action-restart]');
     newGameBtn.addEventListener('click', () => {
-      this.level = 1;
-      this.turn = 0;
-      this.gamePlay.addNewGameListener(this.init());
+      const gamePlay = new GamePlay();
+      gamePlay.bindToDOM(document.querySelector('#game-container'));
+      const stateService = new GameStateService(localStorage);
+      const gameCtrl = new GameController(gamePlay, stateService);
+      gameCtrl.init();
     });
   }
 
@@ -101,10 +104,18 @@ export default class GameController {
       const { theme, positions, level } = this.localStorage.load();
       this.theme = theme;
       this.positions = positions;
+      this.positions = this.positions.map((el) => reviveChar(el));
       this.level = level;
       this.gamePlay.drawUi(this.theme);
       this.gamePlay.redrawPositions(this.positions);
+      this.initButtons();
     });
+  }
+
+  initButtons() {
+    this.loadBtn();
+    this.saveBtn();
+    this.newGameBtn();
   }
 
   // генерация позиций игрока
@@ -112,6 +123,9 @@ export default class GameController {
     const field = this.boardSize ** 2;
     const index = Math.floor(Math.random() * field);
     if (index % this.boardSize === 0 || index % this.boardSize === 1) {
+      for (let i = 0; i < this.userArr.length; i += 1) {
+        if (index === this.userArr[i].position) return false;
+      }
       return index;
     }
     return this.getPlayerPosition();
@@ -125,6 +139,9 @@ export default class GameController {
       (index + 1) % this.boardSize === 0
       || (index + 1) % this.boardSize === this.boardSize - 1
     ) {
+      for (let i = 0; i < this.enemyArr.length; i += 1) {
+        if (index === this.enemyArr[i].position) return false;
+      }
       return index;
     }
     return this.getEnemyPosition();
@@ -172,6 +189,12 @@ export default class GameController {
           const message = template(el.character);
           this.gamePlay.showCellTooltip(message, index);
           this.gamePlay.setCursor(cursors.pointer);
+        } else if (
+          (isEvil(el))
+          && el.position === index
+        ) {
+          const message = template(el.character);
+          this.gamePlay.showCellTooltip(message, index);
         }
       });
       this.selectedChar.ways.forEach((element) => {
@@ -300,14 +323,12 @@ export default class GameController {
     selectedChar.ways.forEach((el) => {
       if (!(index === el)) return;
       this.positions.splice(this.positions.indexOf(selectedChar), 1);
-      // eslint-disable-next-line no-param-reassign
       selectedChar.position = index;
-      // eslint-disable-next-line no-param-reassign
       delete selectedChar.ways;
-      // eslint-disable-next-line no-param-reassign
       delete selectedChar.targets;
       this.positions.push(selectedChar);
       this.gamePlay.redrawPositions(this.positions);
+      this.initButtons();
       this.selectedChar = undefined;
       if (this.turn === 0) {
         this.turn = 1;
@@ -331,28 +352,23 @@ export default class GameController {
       const { defence } = enemy.character;
       const { attack } = selectedChar.character;
       const damage = Math.max(attack - defence, attack * 0.1);
-      this.gamePlay.showDamage(target, damage).then(() => {
+      const promise = this.gamePlay.showDamage(target, damage);
+      promise.then(() => {
         enemy.character.vounded(damage);
         if (enemy.character.health > 0) {
           this.positions.splice(this.positions.indexOf(selectedChar), 1);
-          // eslint-disable-next-line no-param-reassign
           delete selectedChar.ways;
-          // eslint-disable-next-line no-param-reassign
           delete selectedChar.targets;
           this.positions.push(selectedChar);
           this.gamePlay.redrawPositions(this.positions);
-          this.selectedChar = undefined;
         }
         if (enemy.character.health <= 0) {
           this.positions.splice(this.positions.indexOf(selectedChar), 1);
-          // eslint-disable-next-line no-param-reassign
           delete selectedChar.ways;
-          // eslint-disable-next-line no-param-reassign
           delete selectedChar.targets;
           this.positions.push(selectedChar);
           this.positions.splice(this.positions.indexOf(enemy), 1);
           this.gamePlay.redrawPositions(this.positions);
-          this.selectedChar = undefined;
         }
         if (this.turn === 0) {
           this.turn = 1;
@@ -365,6 +381,7 @@ export default class GameController {
           this.gamePlay.deselectCell(a);
         }
       });
+      this.selectedChar = undefined;
     }
   }
 
@@ -390,14 +407,16 @@ export default class GameController {
                 attacked = true;
                 const damage = Math.max(attack - defence, attack * 0.1);
                 this.gamePlay.showDamage(target.position, damage).then(() => {
-                  target.character.vounded(damage);
-                  if (target.character.health > 0) {
-                    this.gamePlay.redrawPositions(this.positions);
-                  }
-                  if (target.character.health < 0) {
-                    this.positions.splice(this.positions.indexOf(target), 1);
-                    this.gamePlay.redrawPositions(this.positions);
-                  }
+                  setTimeout(() => {
+                    target.character.vounded(damage);
+                    if (target.character.health > 0) {
+                      this.gamePlay.redrawPositions(this.positions);
+                    }
+                    if (target.character.health < 0) {
+                      this.positions.splice(this.positions.indexOf(target), 1);
+                      this.gamePlay.redrawPositions(this.positions);
+                    }
+                  }, 10000);
                 });
               }
             }
@@ -412,26 +431,25 @@ export default class GameController {
             const original = el.position;
             for (let i = 0; i < arr.length; i += 1) {
               for (let a = 0; a < userTeam.length; a += 1) {
-                // eslint-disable-next-line no-param-reassign
                 el.position = arr[i];
                 if (this.canAttack(el, userTeam[a].position)) {
                   this.gamePlay.redrawPositions(this.positions);
+                  this.initButtons();
                   moved = true;
                   return false;
                 }
               }
             }
             if (!moved) {
-              // eslint-disable-next-line no-param-reassign
               el.position = original;
               const userPos = [];
               userTeam.forEach((item) => userPos.push(item.position));
               const index = (Math.random() * (userPos.length - 0) + 0);
               const victim = userPos[index];
               const goTo = arr.reduce((prev, curr) => (Math.abs(curr - victim) < Math.abs(prev - victim) ? curr : prev));
-              // eslint-disable-next-line no-param-reassign
               el.position = goTo;
               this.gamePlay.redrawPositions(this.positions);
+              this.initButtons();
               moved = true;
             }
           }
@@ -459,10 +477,10 @@ export default class GameController {
 
   playerWon() {
     this.level += 1;
-    GamePlay.showMessage(`You won ${this.level - 1} round`);
     if (this.level === 2) {
       this.positions.forEach((item) => {
         item.character.levelUp();
+        item.position = this.getPlayerPosition();
       });
       const char = new PositionedCharacter(
         generateRandon(this.level),
@@ -472,11 +490,11 @@ export default class GameController {
       const enemyTeam = generateTeam(
         [Daemon, Undead, Vampire],
         4,
-        this.positions.length + 2,
+        this.positions.length + 1,
       );
-      for (let i = 0; i < enemyTeam.members.length; i += 1) {
+      for (let i = 0; i < enemyTeam.length; i += 1) {
         const placedChar = new PositionedCharacter(
-          enemyTeam.members[i],
+          enemyTeam[i],
           this.getEnemyPosition(),
         );
         this.positions.push(placedChar);
@@ -484,10 +502,12 @@ export default class GameController {
       this.theme = themes.desert;
       this.gamePlay.drawUi(this.theme);
       this.gamePlay.redrawPositions(this.positions);
+      this.initButtons();
     }
     if (this.level === 3) {
       this.positions.forEach((item) => {
         item.character.levelUp();
+        item.position = this.getPlayerPosition();
       });
       const char = new PositionedCharacter(
         generateRandon(this.level),
@@ -499,9 +519,9 @@ export default class GameController {
         4,
         this.positions.length + 2,
       );
-      for (let i = 0; i < enemyTeam.members.length; i += 1) {
+      for (let i = 0; i < enemyTeam.length; i += 1) {
         const placedChar = new PositionedCharacter(
-          enemyTeam.members[i],
+          enemyTeam[i],
           this.getEnemyPosition(),
         );
         this.positions.push(placedChar);
@@ -509,10 +529,12 @@ export default class GameController {
       this.theme = themes.arctic;
       this.gamePlay.drawUi(this.theme);
       this.gamePlay.redrawPositions(this.positions);
+      this.initButtons();
     }
     if (this.level === 4) {
       this.positions.forEach((item) => {
         item.character.levelUp();
+        item.position = this.getPlayerPosition();
       });
       const char = new PositionedCharacter(
         generateRandon(this.level),
@@ -524,9 +546,9 @@ export default class GameController {
         4,
         this.positions.length + 2,
       );
-      for (let i = 0; i < enemyTeam.members.length; i += 1) {
+      for (let i = 0; i < enemyTeam.length; i += 1) {
         const placedChar = new PositionedCharacter(
-          enemyTeam.members[i],
+          enemyTeam[i],
           this.getEnemyPosition(),
         );
         this.positions.push(placedChar);
@@ -534,6 +556,10 @@ export default class GameController {
       this.theme = themes.mountain;
       this.gamePlay.drawUi(this.theme);
       this.gamePlay.redrawPositions(this.positions);
+      this.initButtons();
+    }
+    if (this.level <= 4) {
+      GamePlay.showMessage(`You won ${this.level - 1} round`);
     }
     if (this.level === 5) {
       GamePlay.showMessage('game over, you win');
